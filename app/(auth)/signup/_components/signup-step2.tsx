@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ArrowLeft, Lock, Loader2 } from "lucide-react";
+import { ArrowRight, Lock, Loader2 } from "lucide-react";
+import { getSession } from "next-auth/react";
+
+async function getBackendSessionToken() {
+  const session = await getSession();
+  return session?.user.sessionToken;
+}
 
 import SignupProgress from "./signup-progress";
 
@@ -75,7 +81,6 @@ export default function SignupStep2({ onBack }: { onBack: () => void }) {
     inputsRef.current[Math.min(next.length, OTP_LENGTH - 1)]?.focus();
   };
 
-  /* ---------------- Actions ---------------- */
   const sendOtp = async () => {
     setError("");
 
@@ -85,13 +90,41 @@ export default function SignupStep2({ onBack }: { onBack: () => void }) {
     }
 
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
 
-    setOtpSent(true);
-    setTimer(RESEND_TIME);
-    setLoading(false);
+    try {
+      const sessionToken = await getBackendSessionToken();
+      console.log(sessionToken);
 
-    setTimeout(() => inputsRef.current[0]?.focus(), 100);
+      const res = await fetch(
+        "http://localhost:3001/api/auth/send-otp",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone,
+            sessionToken, // body-based auth (as discussed)
+          }),
+        }
+      );
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        setError(result?.message ?? "Failed to send OTP");
+        setLoading(false);
+        return;
+      }
+
+      setOtpSent(true);
+      setTimer(RESEND_TIME);
+
+      setTimeout(() => inputsRef.current[0]?.focus(), 100);
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong while sending OTP.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const verifyOtp = async () => {
@@ -103,13 +136,43 @@ export default function SignupStep2({ onBack }: { onBack: () => void }) {
     setLoading(true);
     setError("");
 
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
+    try {
+      const sessionToken = await getBackendSessionToken();
 
-    // success → register user → onboarding
+      const res = await fetch(
+        "http://localhost:3001/api/auth/verify-otp",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone,
+            otp: otp.join(""),
+            sessionToken,
+          }),
+        }
+      );
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        setError(result?.message ?? "Invalid OTP");
+        setLoading(false);
+        return;
+      }
+
+      // ✅ Phone verified → proceed
+      // Backend now has isPhoneVerified = true
+      window.location.href = "/onboarding";
+    } catch (err) {
+      console.error(err);
+      setError("OTP verification failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resendOtp = async () => {
+    if (timer > 0) return;
     setTimer(RESEND_TIME);
     await sendOtp();
   };
@@ -121,15 +184,6 @@ export default function SignupStep2({ onBack }: { onBack: () => void }) {
         <SignupProgress step={2} label="Phone Verification" />
 
         <div className="p-8 sm:p-10 flex flex-col gap-8">
-          {/* Back */}
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 text-sm font-semibold text-text-secondary hover:text-primary transition w-fit"
-          >
-            <ArrowLeft size={16} />
-            Edit personal info
-          </button>
-
           {/* Header */}
           <div className="text-center">
             <h1 className="text-2xl sm:text-3xl font-bold text-text-main">
@@ -211,11 +265,10 @@ export default function SignupStep2({ onBack }: { onBack: () => void }) {
                   <button
                     disabled={timer > 0}
                     onClick={resendOtp}
-                    className={`font-semibold transition ${
-                      timer > 0
-                        ? "cursor-not-allowed opacity-50"
-                        : "text-primary hover:opacity-80"
-                    }`}
+                    className={`font-semibold transition ${timer > 0
+                      ? "cursor-not-allowed opacity-50"
+                      : "text-primary hover:opacity-80"
+                      }`}
                   >
                     Resend
                   </button>

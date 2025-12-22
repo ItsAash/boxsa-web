@@ -20,6 +20,7 @@ export default function SignupStep1({ onNext }: { onNext: () => void }) {
 
   const hydrateFromGoogle = useCallback(async () => {
     const session = await getSession();
+    console.log("session:", session?.user.sessionToken);
 
     if (!session?.user) return;
 
@@ -35,6 +36,8 @@ export default function SignupStep1({ onNext }: { onNext: () => void }) {
   useEffect(() => {
     hydrateFromGoogle();
   }, [hydrateFromGoogle]);
+
+
 
   const handleGoogleSignup = async () => {
     await signIn("google", { callbackUrl: "/signup" });
@@ -73,9 +76,75 @@ export default function SignupStep1({ onNext }: { onNext: () => void }) {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleContinue = (e: React.MouseEvent) => {
+  const handleContinue = async (e: React.MouseEvent) => {
     e.preventDefault();
-    if (validate()) onNext();
+    if (!validate()) return;
+
+    try {
+      const res = await fetch("http://localhost:3001/api/auth/signup/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: data.fullName,
+          email: data.email,
+          password: data.password,
+          passwordConfirmation: data.cPassword,
+        }),
+      });
+
+      const result = await res.json();
+      console.log("Signup result:", result);
+
+      // ❌ Backend validation error
+      if (!res.ok) {
+        const nextErrors: Errors = {};
+
+        // Preferred structured format
+        if (result?.errors && Array.isArray(result.errors)) {
+          result.errors.forEach((err: any) => {
+            const message = err.messages?.[0] ?? "Invalid value";
+
+            switch (err.field) {
+              case "fullName":
+                nextErrors.fullName = message;
+                break;
+              case "email":
+                nextErrors.email = message;
+                break;
+              case "password":
+                nextErrors.password = message;
+                break;
+              case "passwordConfirmation":
+                nextErrors.confirmPassword = message;
+                break;
+              default:
+                // global / unknown error
+                nextErrors.email = message;
+            }
+          });
+        } else if (result?.message) {
+          // Fallback for legacy backend responses
+          nextErrors.email = result.message;
+        }
+
+        setErrors(nextErrors);
+        return;
+      }
+
+      // ✅ Store backend session in NextAuth
+      await signIn("credentials", {
+        redirect: false,
+        email: result.user.email,
+        sessionToken: result.sessionToken,
+      });
+
+      onNext();
+    } catch (err) {
+      console.error("Signup failed:", err);
+      setErrors({
+        email: "Something went wrong. Please try again.",
+      });
+    }
   };
 
   const strength = passwordScore(data.password);
@@ -173,9 +242,8 @@ export default function SignupStep1({ onNext }: { onNext: () => void }) {
                   {[0, 1, 2, 3].map((i) => (
                     <div
                       key={i}
-                      className={`w-1/4 rounded-full ${
-                        strength > i ? strengthColor(strength) : "bg-gray-700"
-                      }`}
+                      className={`w-1/4 rounded-full ${strength > i ? strengthColor(strength) : "bg-gray-700"
+                        }`}
                     />
                   ))}
                 </div>
@@ -223,6 +291,7 @@ export default function SignupStep1({ onNext }: { onNext: () => void }) {
 function passwordScore(password: string) {
   let score = 0;
   if (password.length >= 8) score++;
+  if (/[a-z]/.test(password)) score++;
   if (/[A-Z]/.test(password)) score++;
   if (/[0-9]/.test(password)) score++;
   if (/[^A-Za-z0-9]/.test(password)) score++;
@@ -244,9 +313,8 @@ function Input({ label, error, ...props }: any) {
       <label className="text-sm font-semibold">{label}</label>
       <input
         {...props}
-        className={`h-11 px-4 rounded-lg border bg-black/20 outline-none focus:ring-2 focus:ring-primary ${
-          error ? "border-red-500" : "border-border-dark"
-        }`}
+        className={`h-11 px-4 rounded-lg border bg-black/20 outline-none focus:ring-2 focus:ring-primary ${error ? "border-red-500" : "border-border-dark"
+          }`}
       />
       {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
@@ -262,9 +330,8 @@ function PasswordInput({ label, error, show, onToggle, ...props }: any) {
         <input
           {...props}
           type={show ? "text" : "password"}
-          className={`h-11 w-full px-4 pr-10 rounded-lg border bg-black/20 outline-none focus:ring-2 focus:ring-primary ${
-            error ? "border-red-500" : "border-border-dark"
-          }`}
+          className={`h-11 w-full px-4 pr-10 rounded-lg border bg-black/20 outline-none focus:ring-2 focus:ring-primary ${error ? "border-red-500" : "border-border-dark"
+            }`}
         />
         <button
           type="button"

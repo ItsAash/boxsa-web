@@ -1,42 +1,52 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
 export const authOptions = {
   providers: [
+    CredentialsProvider({
+      name: "boxsa",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+        sessionToken: { label: "Session Token", type: "text" },
+      },
+      async authorize(credentials) {
+        // IMPORTANT:
+        // We trust backend, not frontend
+        if (!credentials?.sessionToken) return null;
+
+        return {
+          id: credentials.email,
+          email: credentials.email,
+          sessionToken: credentials.sessionToken,
+        };
+      },
+    }),
+
+    // Keep Google for later
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
   ],
+
   session: {
-    strategy: "jwt",
-  } as const,
+    strategy: "jwt" as const,
+  },
+
   callbacks: {
-    async jwt({
-      token,
-      user,
-      account,
-    }: {
-      token: any;
-      user?: any;
-      account?: any;
-    }) {
-      if (account && user) {
-        token.id = user.id;
-        token.name = user.name;
+    async jwt({ token, user }: { token: any; user: any }) {
+      if (user) {
+        token.sessionToken = user.sessionToken;
         token.email = user.email;
-        token.image = user.image;
       }
       return token;
     },
+
     async session({ session, token }: { session: any; token: any }) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.name = token.name;
-        session.user.email = token.email;
-        session.user.image = token.image;
-      }
+      session.user.email = token.email;
+      session.user.sessionToken = token.sessionToken;
       return session;
     },
   },
