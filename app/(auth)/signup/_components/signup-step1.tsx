@@ -289,13 +289,17 @@ export default function SignupStep1({ onNext }: { onNext: () => void }) {
 /* ---------- Helpers ---------- */
 
 function passwordScore(password: string) {
+  if (!password) return 0;
+  
   let score = 0;
   if (password.length >= 8) score++;
   if (/[a-z]/.test(password)) score++;
   if (/[A-Z]/.test(password)) score++;
   if (/[0-9]/.test(password)) score++;
   if (/[^A-Za-z0-9]/.test(password)) score++;
-  return score;
+  
+  // Cap at 4 for the UI (since you have 4 bars)
+  return Math.min(score - 1, 4);
 }
 
 const strengthLabel = (s: number) =>
