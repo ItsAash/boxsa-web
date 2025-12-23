@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Home, Store, LogOut } from "lucide-react";
+import { ArrowRight, Home, Store } from "lucide-react";
+import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import OnboardingProgress from "../_components/onboarding-progress";
 import BuyerTypeCard from "./_components/buyer-type-card";
 import BusinessDetailsForm from "./_components/business-detail-form";
-import Link from "next/link";
+import PersonalDetailsForm from "./_components/personal-detail-form";
 
 type BuyerType = "personal" | "business";
 
@@ -30,7 +31,7 @@ export default function BuyerTypePage() {
               How are you planning to shop?
             </h1>
             <p className="text-text-secondary dark:text-gray-400 text-lg">
-              We’ll tailor recommendations and pricing based on your needs.
+              We'll tailor recommendations and pricing based on your needs.
             </p>
           </div>
 
@@ -53,12 +54,14 @@ export default function BuyerTypePage() {
             />
           </div>
 
-          {/* Business Details */}
+          {/* Conditional Forms */}
+          {buyerType === "personal" && <PersonalDetailsForm />}
           {buyerType === "business" && <BusinessDetailsForm />}
 
           {/* Navigation */}
           <div className="flex items-center justify-end pt-6 border-t border-border-light dark:border-border-dark">
-            <button
+            <Link
+              href="/onboarding/location"
               className="h-11 px-8 rounded-full
                 bg-primary hover:bg-green-400
                 text-background-dark font-bold
@@ -67,7 +70,7 @@ export default function BuyerTypePage() {
             >
               Continue
               <ArrowRight size={18} />
-            </button>
+            </Link>
           </div>
         </div>
       </main>

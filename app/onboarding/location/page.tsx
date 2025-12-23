@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, MapPin, Flag } from "lucide-react";
+import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import OnboardingProgress from "../_components/onboarding-progress";
 
@@ -126,7 +127,8 @@ export default function DeliveryLocationPage() {
 
           {/* Navigation */}
           <div className="flex items-center justify-between pt-6 border-t border-border-light dark:border-border-dark">
-            <button
+            <Link
+              href="/onboarding/buyer-type"
               className="
                 h-11 px-6 rounded-full
                 border border-border-light dark:border-border-dark
@@ -139,9 +141,10 @@ export default function DeliveryLocationPage() {
             >
               <ArrowLeft size={16} />
               Back
-            </button>
+            </Link>
 
-            <button
+            <Link
+              href="/onboarding/welcome"
               className="
                 h-11 px-8 rounded-full
                 bg-primary text-background-dark
@@ -154,7 +157,7 @@ export default function DeliveryLocationPage() {
             >
               Continue
               <ArrowRight size={18} />
-            </button>
+            </Link>
           </div>
         </div>
       </main>
