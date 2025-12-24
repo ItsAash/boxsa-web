@@ -3,45 +3,22 @@
 import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, Eye, EyeOff } from "lucide-react";
-import SignupProgress from "./signup-progress";
 import { useSignup } from "../_context/signup-context";
-import { getSession, signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 type Errors = Partial<
   Record<"fullName" | "email" | "password" | "confirmPassword", string>
 >;
 
-export default function SignupStep1({ onNext }: { onNext: () => void }) {
+export default function SignupForm() {
+  const router = useRouter();
   const { data, update } = useSignup();
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
 
-  const hydrateFromGoogle = useCallback(async () => {
-    const session = await getSession();
-    console.log("session:", session?.user.sessionToken);
 
-    if (!session?.user) return;
-
-    update({
-      fullName: session.user.name ?? "",
-      email: session.user.email ?? "",
-      provider: "google",
-    });
-
-    onNext();
-  }, [update, onNext]);
-
-  useEffect(() => {
-    hydrateFromGoogle();
-  }, [hydrateFromGoogle]);
-
-
-
-  const handleGoogleSignup = async () => {
-    await signIn("google", { callbackUrl: "/signup" });
-  };
 
   /* ---------- Validation ---------- */
 
@@ -83,6 +60,7 @@ export default function SignupStep1({ onNext }: { onNext: () => void }) {
     try {
       const res = await fetch("http://localhost:3001/api/auth/signup/email", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: data.fullName,
@@ -131,14 +109,11 @@ export default function SignupStep1({ onNext }: { onNext: () => void }) {
         return;
       }
 
-      // ✅ Store backend session in NextAuth
-      await signIn("credentials", {
-        redirect: false,
-        email: result.user.email,
-        sessionToken: result.sessionToken,
-      });
+      // Redirect to the /response.nextStep using next/router
+      const nextStep = result.nextStep
+      router.push(`/${nextStep}`);
 
-      onNext();
+
     } catch (err) {
       console.error("Signup failed:", err);
       setErrors({
@@ -153,7 +128,6 @@ export default function SignupStep1({ onNext }: { onNext: () => void }) {
     <div className="flex-1 flex flex-col">
       <section className="flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-[520px] bg-surface-light dark:bg-surface-dark rounded-2xl shadow-xl border border-border-light dark:border-border-dark overflow-hidden">
-          <SignupProgress step={1} label="Account Registration" />
 
           <div className="p-8 sm:p-10 flex flex-col gap-6">
             <div className="text-center">
@@ -165,27 +139,6 @@ export default function SignupStep1({ onNext }: { onNext: () => void }) {
               </p>
             </div>
 
-            {/* Google */}
-            <button
-              onClick={handleGoogleSignup}
-              className="h-12 rounded-xl border border-border-light dark:border-white/10 flex items-center justify-center gap-3 hover:bg-white/10 transition"
-            >
-              <img
-                src="https://www.google.com/favicon.ico"
-                alt="Google"
-                className="w-5 h-5"
-              />
-              <span className="font-semibold">Sign up with Google</span>
-            </button>
-
-            {/* Divider */}
-            <div className="flex items-center gap-4">
-              <div className="flex-1 h-px bg-gray-700" />
-              <span className="text-sm text-gray-400">
-                Or continue with email
-              </span>
-              <div className="flex-1 h-px bg-gray-700" />
-            </div>
 
             {/* Form */}
             <form className="flex flex-col gap-5">
@@ -290,14 +243,14 @@ export default function SignupStep1({ onNext }: { onNext: () => void }) {
 
 function passwordScore(password: string) {
   if (!password) return 0;
-  
+
   let score = 0;
   if (password.length >= 8) score++;
   if (/[a-z]/.test(password)) score++;
   if (/[A-Z]/.test(password)) score++;
   if (/[0-9]/.test(password)) score++;
   if (/[^A-Za-z0-9]/.test(password)) score++;
-  
+
   // Cap at 4 for the UI (since you have 4 bars)
   return Math.min(score - 1, 4);
 }

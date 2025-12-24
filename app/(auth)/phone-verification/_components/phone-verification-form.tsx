@@ -2,20 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Lock, Loader2 } from "lucide-react";
-import { getSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
-async function getBackendSessionToken() {
-  const session = await getSession();
-  return session?.user.sessionToken;
-}
 
-import SignupProgress from "./signup-progress";
 
 const OTP_LENGTH = 6;
 const RESEND_TIME = 30;
 const NEPAL_MOBILE_REGEX = /^(97|98)\d{8}$/;
 
-export default function SignupStep2({ onBack }: { onBack: () => void }) {
+export default function PhoneVerificationForm() {
+  const router = useRouter();
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [otpSent, setOtpSent] = useState(false);
@@ -92,17 +88,15 @@ export default function SignupStep2({ onBack }: { onBack: () => void }) {
     setLoading(true);
 
     try {
-      const sessionToken = await getBackendSessionToken();
-      console.log(sessionToken);
 
       const res = await fetch(
         "http://localhost:3001/api/auth/send-otp",
         {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             phone,
-            sessionToken, // body-based auth (as discussed)
           }),
         }
       );
@@ -137,17 +131,16 @@ export default function SignupStep2({ onBack }: { onBack: () => void }) {
     setError("");
 
     try {
-      const sessionToken = await getBackendSessionToken();
 
       const res = await fetch(
         "http://localhost:3001/api/auth/verify-otp",
         {
           method: "POST",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             phone,
             otp: otp.join(""),
-            sessionToken,
           }),
         }
       );
@@ -161,8 +154,9 @@ export default function SignupStep2({ onBack }: { onBack: () => void }) {
       }
 
       // ✅ Phone verified → proceed
-      // Backend now has isPhoneVerified = true
-      window.location.href = "/onboarding";
+      // Redirect to the /response.nextStep using next/router
+      const nextStep = result.nextStep
+      router.push(`/${nextStep}`);
     } catch (err) {
       console.error(err);
       setError("OTP verification failed. Please try again.");
@@ -181,8 +175,6 @@ export default function SignupStep2({ onBack }: { onBack: () => void }) {
   return (
     <div className="flex-1 flex items-center justify-center px-4">
       <div className="w-full max-w-[520px] bg-surface-dark rounded-2xl shadow-xl border border-border-dark overflow-hidden">
-        <SignupProgress step={2} label="Phone Verification" />
-
         <div className="p-8 sm:p-10 flex flex-col gap-8">
           {/* Header */}
           <div className="text-center">
